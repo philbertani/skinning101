@@ -69,7 +69,9 @@ function main() {
     
     //normalVec = a_normal;
 
-    viewZ = view * vec4(0,0,1,1); //view[3]; //view * vec4(0,0,2,1); //view[2].xyz;
+    //viewZ = view * vec4(0,0,1,1); //view[3]; //view * vec4(0,0,2,1); //view[2].xyz;
+
+    viewZ = view[3]; //vec4( view[3][0], view[3][1], view[3][2], 0.);
 
     pos = gl_Position;
 
@@ -93,8 +95,8 @@ function main() {
     vec3 dy = dFdy( eyeCoords.xyz );
     vec3 norm = normalVec.xyz; //normalize(cross(dx,dy)); //normalVec.xyz
     
-    vec3 light = -normalize(viewZ.xyz+vec3(0,0,0));
-    vec3 halfv = light; //normalize(light - viewZ.xyz);
+    vec3 light = -normalize(viewZ.xyz);
+    vec3 halfv = normalize(light - viewZ.xyz);
 
     float sign = gl_FrontFacing ? 1. : -1.;  //set to 1 if using dx,dy
     float diffuse = max(0.,dot(light, sign*norm));
@@ -139,6 +141,7 @@ function main() {
   void main () {
     vec3 light = -viewZ.xyz; //normalize(vec3(.5,1,-1));
     light.y -= 3.; light = normalize(light);
+
     float depth = pos.w;
     float sign = gl_FrontFacing ? 1. : -1.;
 
@@ -314,6 +317,8 @@ function main() {
       const normalVec = normalize( normMap[key].vtx );  //dont need count - normalize will take care of everything
       flatNorms.push( ...normalVec );
     }
+
+    //there is something slightly funky about these flatNorms
     console.log(flatNorms);
 
     function addToMap(pos, vertexArray, M) {
@@ -453,9 +458,29 @@ function main() {
   gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   let frame = 0;
+  let prevTime = 0;
+  const fps = 40;
+  const maxFPS = 240;
+
+  //x1.xxx();
+
+  const rotator = new m4.SimpleRotator(canvas);
+  rotator.setViewDistance(3);
+  rotator.setRotationCenter( [0,0,0] );
+
+  console.log("view",rotator.getViewMatrix());
+
   function render(time) {
 
-    if (frame <  2) console.log(boneArray);
+    requestAnimationFrame(render);
+
+    const fpsAdjust = maxFPS/fps;  
+    const fpsInterval = 1000 / fps;
+    const elapsed = time - prevTime;
+    if (elapsed < fpsInterval ) return;
+    prevTime = time - elapsed%fpsInterval;
+
+    //if (frame <  2) console.log(boneArray);
 
     frame ++;
 
@@ -467,7 +492,9 @@ function main() {
 
     const t = time * 0.001;
     const angle = .5*Math.sin(t*3 );
-    m4.multiply(uniforms.view, m4.yRotation(0.001), uniforms.view);
+    //m4.multiply(uniforms.view, m4.yRotation(0.001*fpsAdjust), uniforms.view);
+
+    uniforms.view = rotator.getViewMatrix();
     uniforms.normal = m4.normalFromMat4(uniforms.view);
 
     computeBoneMatrices(bones, angle);
@@ -504,8 +531,9 @@ function main() {
 
     drawAxis(uniforms.projection, uniforms.view, bones);
 
-    requestAnimationFrame(render);
+
   }
+
   requestAnimationFrame(render);
 
   // --- ignore below this line - it's not relevant to the exmample and it's kind of a bad example ---
